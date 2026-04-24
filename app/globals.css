@@ -1,26 +1,215 @@
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  background: #f5f7fa;
+  color: #1a202c;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-text-size-adjust: 100%;
 }
+.container { max-width: 640px; margin: 0 auto; padding: 16px; }
+.hidden { display: none !important; }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.header {
+  background: linear-gradient(135deg, #2c5282, #2a4365);
+  color: white; padding: 14px 16px;
+  position: sticky; top: 0; z-index: 10;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.header h1 { font-size: 1.15rem; font-weight: 600; flex: 1; text-align: center; }
+.header .settings-btn {
+  background: rgba(255,255,255,0.2); color: white; border: none;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+  font-family: inherit;
 }
+.header .sync-indicator { font-size: 0.72rem; opacity: 0.85; min-width: 60px; text-align: right; }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.tabs {
+  display: flex; background: white;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky; top: 50px; z-index: 9;
+}
+.tab {
+  flex: 1; padding: 12px 4px; text-align: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 0.95rem; color: #4a5568;
+  border-bottom: 3px solid transparent; transition: all 0.2s;
+  font-family: inherit;
+}
+.tab.active { color: #2c5282; border-bottom-color: #2c5282; font-weight: 600; }
+
+.login-box {
+  max-width: 400px; margin: 60px auto;
+  padding: 32px 24px;
+  background: white; border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.login-box h2 { text-align: center; margin-bottom: 24px; color: #2c5282; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; margin-bottom: 6px;
+  font-weight: 500; color: #2d3748; font-size: 0.9rem;
+}
+input[type="text"], input[type="password"], input[type="number"], input[type="date"], select {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #cbd5e0; border-radius: 8px;
+  font-size: 1rem; background: white; color: #1a202c;
+  font-family: inherit;
+}
+input:focus, select:focus { outline: none; border-color: #2c5282; box-shadow: 0 0 0 3px rgba(44,82,130,0.15); }
+
+.btn {
+  padding: 10px 20px; border: none;
+  border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.btn-primary { background: #2c5282; color: white; }
+.btn-primary:hover { background: #2a4365; }
+.btn-secondary { background: #e2e8f0; color: #2d3748; }
+.btn-secondary:hover { background: #cbd5e0; }
+.btn-danger { background: #c53030; color: white; }
+.btn-danger:hover { background: #9b2c2c; }
+.btn-block { width: 100%; }
+.btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card {
+  background: white; border-radius: 12px;
+  padding: 16px; margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.card-title { font-weight: 600; margin-bottom: 10px; color: #2d3748; font-size: 1rem; }
+
+.mode-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+.mode-btn {
+  flex: 1; padding: 10px; border: 2px solid #cbd5e0;
+  background: white; color: #4a5568;
+  border-radius: 8px; cursor: pointer; font-weight: 600;
+  font-size: 0.95rem; font-family: inherit;
+}
+.mode-btn.active { background: #2c5282; color: white; border-color: #2c5282; }
+
+.score-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 40px;
+  gap: 8px; align-items: center;
+  margin-bottom: 8px; padding: 10px;
+  background: #f7fafc; border-radius: 8px;
+}
+.score-row.absent { background: #edf2f7; opacity: 0.6; }
+.score-row .player-name { font-weight: 600; color: #2d3748; }
+.score-row .rank-badge {
+  display: inline-block; width: 32px; height: 32px;
+  line-height: 32px; text-align: center;
+  border-radius: 50%; font-weight: 700;
+  color: white; font-size: 0.9rem;
+}
+.rank-1 { background: #d69e2e; }
+.rank-2 { background: #a0aec0; }
+.rank-3 { background: #b7791f; }
+.rank-4 { background: #742a2a; }
+.rank-absent { background: #cbd5e0; color: #4a5568 !important; font-size: 0.7rem; }
+.score-input { text-align: right; }
+
+.event-item {
+  padding: 12px; background: #f7fafc; border-radius: 8px;
+  margin-bottom: 8px; border-left: 3px solid #2c5282;
+}
+.event-item.yakuman { border-left-color: #d69e2e; background: #fffbeb; }
+.event-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.event-grid label { font-size: 0.78rem; color: #718096; margin-bottom: 4px; display:block; }
+.event-grid select { padding: 8px 10px; }
+.event-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.yakuman-bonus-note { font-size: 0.78rem; color: #b7791f; margin-top: 6px; font-weight: 600; }
+
+.history-item {
+  background: white; border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.history-date { color: #718096; font-size: 0.85rem; }
+.history-mode-badge {
+  display: inline-block; padding: 2px 8px;
+  background: #2c5282; color: white;
+  border-radius: 4px; font-size: 0.7rem;
+  font-weight: 600; margin-left: 6px;
+}
+.history-mode-badge.sanma { background: #805ad5; }
+.history-results {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 6px; margin-top: 10px;
+}
+.history-player {
+  text-align: center; padding: 8px 4px;
+  border-radius: 6px; background: #f7fafc;
+}
+.history-player.absent { opacity: 0.5; }
+.history-player .name { font-size: 0.8rem; color: #4a5568; margin-bottom: 2px; }
+.history-player .score { font-weight: 600; font-size: 0.95rem; }
+.history-player .points { font-size: 0.8rem; margin-top: 2px; }
+.points-pos { color: #2f855a; }
+.points-neg { color: #c53030; }
+.points-zero { color: #718096; }
+
+.stats-table {
+  width: 100%; border-collapse: collapse;
+  background: white; border-radius: 8px;
+  overflow: hidden; font-size: 0.9rem;
+}
+.stats-table th, .stats-table td {
+  padding: 10px 8px; text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+.stats-table th { background: #2c5282; color: white; font-size: 0.82rem; font-weight: 600; }
+.stats-table td:first-child, .stats-table th:first-child { text-align: left; }
+.stats-rank-1 { background: #fef5e7; font-weight: 600; }
+
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 16px;
+}
+.modal {
+  background: white; border-radius: 12px;
+  padding: 22px;
+  max-width: 480px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h3 { margin-bottom: 14px; color: #2c5282; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+.empty { text-align: center; padding: 60px 16px; color: #718096; }
+.text-center { text-align: center; }
+.text-muted { color: #718096; font-size: 0.85rem; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px; color: #718096;
+}
+.spinner {
+  width: 24px; height: 24px; margin-right: 10px;
+  border: 3px solid #e2e8f0; border-top-color: #2c5282;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.config-warning {
+  background: #fed7d7; color: #742a2a;
+  padding: 14px; margin: 16px; border-radius: 8px;
+  border-left: 4px solid #c53030;
+}
+.config-warning code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; }
+
+@media (max-width: 480px) {
+  .container { padding: 10px; }
+  .score-row { grid-template-columns: 1fr 90px 36px; }
+  .history-player .name { font-size: 0.72rem; }
+  .stats-table th, .stats-table td { padding: 8px 4px; font-size: 0.82rem; }
 }
