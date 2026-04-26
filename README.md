@@ -121,7 +121,7 @@ git add .
 git commit -m "initial commit: mahjong tracker"
 
 # GitHubで新規リポジトリを作ってから:
-git remote add origin https://github.com/<your-username>/mahjong-tracker.git
+git remote add origin https://github.com/<urunosena-bit>/mahjong-tracker.git
 git branch -M main
 git push -u origin main
 ```

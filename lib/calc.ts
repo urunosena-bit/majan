@@ -13,7 +13,7 @@
 //       三麻: あがった人が +300  (同上)
 // ============================================================
 
-import { HanchanEvent, Mode } from './types';
+import { HanchanEvent, HanchanChip, CHIP_VALUES, Mode } from './types';
 
 const NORMAL_EVENT_LOSS = 100;          // -100pt per affected loser
 
@@ -45,7 +45,8 @@ export function calculatePoints(
   scores: (number | null)[],
   events: HanchanEvent[],
   mode: Mode,
-  absentIdx: number | null
+  absentIdx: number | null,
+  chips: HanchanChip[] = []
 ): { ranks: (number | null)[]; points: number[] } {
   const ranks = calculateRanks(scores, mode, absentIdx);
   const points = [0, 0, 0, 0];
@@ -58,11 +59,12 @@ export function calculatePoints(
     if (ranks[i] === lastRank) points[i] -= rankBonus;
   }
 
-  // イベント
+  // イベント (count倍に対応: 裏ドラ3 → -100 × 3 など)
   for (const ev of events) {
+    const count = Math.max(1, ev.count ?? 1);
     if (ev.type === 'yakuman') {
-      // 役満は あがった人が ご褒美ボーナス
-      const bonus = mode === 'sanma' ? YAKUMAN_BONUS_SANMA : YAKUMAN_BONUS_YONMA;
+      // 役満は あがった人が ご褒美ボーナス × count (ダブル役満なら2倍)
+      const bonus = (mode === 'sanma' ? YAKUMAN_BONUS_SANMA : YAKUMAN_BONUS_YONMA) * count;
       if (ev.winner >= 0 && ev.winner < 4) {
         points[ev.winner] += bonus;
       }
@@ -70,16 +72,24 @@ export function calculatePoints(
     }
 
     // 通常役
+    const loss = NORMAL_EVENT_LOSS * count;
     if (ev.isTsumo) {
       for (let i = 0; i < 4; i++) {
         if (mode === 'sanma' && i === absentIdx) continue;
-        if (i !== ev.winner) points[i] -= NORMAL_EVENT_LOSS;
+        if (i !== ev.winner) points[i] -= loss;
       }
     } else {
       if (typeof ev.discarder === 'number' && ev.discarder !== ev.winner) {
-        points[ev.discarder] -= NORMAL_EVENT_LOSS;
+        points[ev.discarder] -= loss;
       }
     }
+  }
+
+  // チップ罰金 (チョンボ -100 / NGワード -100 / 飛び -200)
+  for (const chip of chips) {
+    if (chip.target < 0 || chip.target > 3) continue;
+    if (mode === 'sanma' && chip.target === absentIdx) continue;
+    points[chip.target] += CHIP_VALUES[chip.type];
   }
 
   return { ranks, points };

@@ -15,8 +15,12 @@ import {
   AppConfig,
   Hanchan,
   HanchanEvent,
+  HanchanChip,
   EventType,
+  ChipType,
   EVENT_LABELS,
+  CHIP_LABELS,
+  CHIP_VALUES,
   Mode,
 } from '@/lib/types';
 
@@ -376,6 +380,7 @@ function NewHanchanTab({
   const [absentIdx, setAbsentIdx] = useState(3);
   const [scores, setScores] = useState<number[]>([25000, 25000, 25000, 25000]);
   const [events, setEvents] = useState<HanchanEvent[]>([]);
+  const [chips, setChips] = useState<HanchanChip[]>([]);
   const [date, setDate] = useState(todayStr());
   const [saving, setSaving] = useState(false);
 
@@ -383,11 +388,12 @@ function NewHanchanTab({
     mode === 'sanma' ? [0, 1, 2, 3].filter((i) => i !== absentIdx) : [0, 1, 2, 3];
 
   function changeMode(next: Mode) {
-    if (events.length > 0 && next !== mode) {
-      if (!confirm('モードを変更すると入力済みのイベントがクリアされます。よろしいですか？')) return;
+    if ((events.length > 0 || chips.length > 0) && next !== mode) {
+      if (!confirm('モードを変更すると入力済みのイベント・チップがクリアされます。よろしいですか？')) return;
     }
     setMode(next);
     setEvents([]);
+    setChips([]);
     if (next === 'sanma') {
       const s = [35000, 35000, 35000, 35000];
       s[absentIdx] = 0;
@@ -398,9 +404,10 @@ function NewHanchanTab({
   }
 
   function changeAbsent(idx: number) {
-    if (events.length > 0) {
-      if (!confirm('お休みの人を変更すると入力済みのイベントがクリアされます。よろしいですか？')) return;
+    if (events.length > 0 || chips.length > 0) {
+      if (!confirm('お休みの人を変更すると入力済みのイベント・チップがクリアされます。よろしいですか？')) return;
       setEvents([]);
+      setChips([]);
     }
     setAbsentIdx(idx);
     const s = [35000, 35000, 35000, 35000];
@@ -418,7 +425,7 @@ function NewHanchanTab({
     const active = activeIndices();
     const winner = active[0];
     const discarder = active.find((i) => i !== winner);
-    setEvents([...events, { type: 'ippatsu', winner, isTsumo: false, discarder }]);
+    setEvents([...events, { type: 'ippatsu', winner, isTsumo: false, discarder, count: 1 }]);
   }
 
   function removeEvent(idx: number) {
@@ -438,8 +445,26 @@ function NewHanchanTab({
     setEvents(next);
   }
 
+  // ===== チップ操作 =====
+  function addChip() {
+    const active = activeIndices();
+    setChips([...chips, { type: 'chombo', target: active[0] }]);
+  }
+  function removeChip(idx: number) {
+    setChips(chips.filter((_, i) => i !== idx));
+  }
+  function updateChip(idx: number, patch: Partial<HanchanChip>) {
+    setChips(chips.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  }
+
   const ranks = calculateRanks(scores, mode, mode === 'sanma' ? absentIdx : null);
-  const { points } = calculatePoints(scores, events, mode, mode === 'sanma' ? absentIdx : null);
+  const { points } = calculatePoints(
+    scores,
+    events,
+    mode,
+    mode === 'sanma' ? absentIdx : null,
+    chips
+  );
   const active = activeIndices();
   const sumScore = active.reduce((s, i) => s + scores[i], 0);
   const expectedSum = mode === 'sanma' ? 105000 : 100000;
@@ -458,6 +483,7 @@ function NewHanchanTab({
       absentIdx: mode === 'sanma' ? absentIdx : null,
       scores: savedScores,
       events: JSON.parse(JSON.stringify(events)),
+      chips: JSON.parse(JSON.stringify(chips)),
       ranks,
       points,
     };
@@ -470,6 +496,7 @@ function NewHanchanTab({
       setAbsentIdx(3);
       setScores([25000, 25000, 25000, 25000]);
       setEvents([]);
+      setChips([]);
       setDate(todayStr());
     } finally {
       setSaving(false);
@@ -535,7 +562,16 @@ function NewHanchanTab({
                     value={scores[i]}
                     step={100}
                     inputMode="numeric"
-                    onChange={(e) => setScoreAt(i, parseInt(e.target.value) || 0)}
+                    onChange={(e) => {
+                      // マイナス値を許可。空欄は0扱い
+                      const v = e.target.value;
+                      if (v === '' || v === '-') {
+                        setScoreAt(i, 0);
+                      } else {
+                        const n = parseInt(v, 10);
+                        setScoreAt(i, Number.isNaN(n) ? 0 : n);
+                      }
+                    }}
                   />
                   <span className={`rank-badge rank-${ranks[i]}`}>{ranks[i]}</span>
                 </>
@@ -622,11 +658,35 @@ function NewHanchanTab({
                     </select>
                   </div>
                 )}
-              </div>
-              {ev.type === 'yakuman' && (
-                <div className="yakuman-bonus-note">
-                  ご褒美: {config.players[ev.winner]} に +{mode === 'sanma' ? 300 : 1000}pt
+                <div>
+                  <label>個数</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    value={ev.count ?? 1}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      updateEvent(idx, { count: Number.isNaN(n) || n < 1 ? 1 : n });
+                    }}
+                    style={{ width: '100%' }}
+                  />
                 </div>
+              </div>
+              {ev.type === 'yakuman' ? (
+                <div className="yakuman-bonus-note">
+                  ご褒美: {config.players[ev.winner]} に +
+                  {(mode === 'sanma' ? 300 : 1000) * (ev.count ?? 1)}pt
+                  {(ev.count ?? 1) > 1 && ` (×${ev.count})`}
+                </div>
+              ) : (
+                (ev.count ?? 1) > 1 && (
+                  <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
+                    {EVENT_LABELS[ev.type]} × {ev.count} → {ev.isTsumo ? '他全員' : '放銃者'}が
+                    -{100 * (ev.count ?? 1)}pt
+                  </div>
+                )
               )}
               <div className="event-actions">
                 <button className="btn btn-danger btn-sm" onClick={() => removeEvent(idx)}>
@@ -638,6 +698,62 @@ function NewHanchanTab({
         )}
         <button className="btn btn-secondary btn-sm mt-3" onClick={addEvent}>
           ＋ イベント追加
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="card-title">チップ (罰金)</div>
+        <p className="text-muted mb-2">
+          チョンボ -100 / NGワード -100 / 飛び -200
+        </p>
+        {chips.length === 0 ? (
+          <p className="text-muted text-center" style={{ padding: '16px 0' }}>
+            チップなし
+          </p>
+        ) : (
+          chips.map((c, idx) => (
+            <div key={idx} className="event-item">
+              <div className="event-grid">
+                <div>
+                  <label>種別</label>
+                  <select
+                    value={c.type}
+                    onChange={(e) => updateChip(idx, { type: e.target.value as ChipType })}
+                  >
+                    {(Object.keys(CHIP_LABELS) as ChipType[]).map((k) => (
+                      <option key={k} value={k}>
+                        {CHIP_LABELS[k]} ({CHIP_VALUES[k]}pt)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label>対象</label>
+                  <select
+                    value={c.target}
+                    onChange={(e) => updateChip(idx, { target: parseInt(e.target.value) })}
+                  >
+                    {active.map((i) => (
+                      <option key={i} value={i}>
+                        {config.players[i]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
+                {config.players[c.target]} に {CHIP_VALUES[c.type]}pt
+              </div>
+              <div className="event-actions">
+                <button className="btn btn-danger btn-sm" onClick={() => removeChip(idx)}>
+                  削除
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+        <button className="btn btn-secondary btn-sm mt-3" onClick={addChip}>
+          ＋ チップ追加
         </button>
       </div>
 
@@ -750,14 +866,24 @@ function HistoryTab({
                 {h.events
                   .map((e) => {
                     const winner = config.players[e.winner];
+                    const cnt = e.count ?? 1;
+                    const cntStr = cnt > 1 ? `×${cnt}` : '';
                     if (e.type === 'yakuman') {
-                      return `${EVENT_LABELS[e.type]}(${winner}・${e.isTsumo ? 'ツモ' : 'ロン'}) ご褒美`;
+                      return `${EVENT_LABELS[e.type]}${cntStr}(${winner}・${e.isTsumo ? 'ツモ' : 'ロン'}) ご褒美`;
                     }
-                    if (e.isTsumo) return `${EVENT_LABELS[e.type]}(${winner}・ツモ)`;
-                    return `${EVENT_LABELS[e.type]}(${winner}←${
+                    if (e.isTsumo) return `${EVENT_LABELS[e.type]}${cntStr}(${winner}・ツモ)`;
+                    return `${EVENT_LABELS[e.type]}${cntStr}(${winner}←${
                       typeof e.discarder === 'number' ? config.players[e.discarder] : '?'
                     })`;
                   })
+                  .join(' / ')}
+              </div>
+            )}
+            {h.chips && h.chips.length > 0 && (
+              <div className="text-muted mt-2" style={{ fontSize: '0.82rem' }}>
+                チップ:{' '}
+                {h.chips
+                  .map((c) => `${CHIP_LABELS[c.type]}(${config.players[c.target]} ${CHIP_VALUES[c.type]}pt)`)
                   .join(' / ')}
               </div>
             )}
@@ -772,12 +898,23 @@ function HistoryTab({
 // 成績タブ
 // ============================================================
 function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[] }) {
+  // ===== 3麻/4麻 切替フィルタ =====
+  const [rankingMode, setRankingMode] = useState<'all' | 'yonma' | 'sanma'>('all');
+
   if (hanchans.length === 0) return <div className="empty">まだ記録がありません</div>;
+
+  // モードフィルタ適用
+  const viewHanchans = hanchans.filter((h) => {
+    const m = h.mode || 'yonma';
+    if (rankingMode === 'all') return true;
+    return m === rankingMode;
+  });
 
   type Row = {
     name: string;
     idx: number;
-    totalPoints: number;
+    totalPoints: number;       // 累計ポイント (プラス・マイナス全部)
+    paidPoints: number;        // 支払ポイント (マイナス成分の合計、負の値)
     totalScore: number;
     rankCounts: number[];
     hanchanCount: number;
@@ -793,6 +930,7 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
     name,
     idx: i,
     totalPoints: 0,
+    paidPoints: 0,
     totalScore: 0,
     rankCounts: [0, 0, 0, 0],
     hanchanCount: 0,
@@ -807,14 +945,16 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
   let totalYonma = 0;
   let totalSanma = 0;
 
-  hanchans.forEach((h) => {
+  viewHanchans.forEach((h) => {
     const mode = h.mode || 'yonma';
     if (mode === 'yonma') totalYonma++;
     else totalSanma++;
     for (let i = 0; i < 4; i++) {
       const isAbsent = mode === 'sanma' && i === h.absentIdx;
       if (isAbsent) continue;
-      stats[i].totalPoints += h.points[i];
+      const pt = h.points[i] ?? 0;
+      stats[i].totalPoints += pt;
+      if (pt < 0) stats[i].paidPoints += pt; // マイナス成分のみ蓄積
       stats[i].totalScore += (h.scores[i] as number) || 0;
       const r = h.ranks[i];
       if (r) stats[i].rankCounts[r - 1]++;
@@ -829,8 +969,9 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
     }
     (h.events || []).forEach((ev) => {
       if (ev.type === 'yakuman' && typeof ev.winner === 'number') {
-        if (mode === 'sanma') stats[ev.winner].yakumanSanma++;
-        else stats[ev.winner].yakumanYonma++;
+        const cnt = ev.count ?? 1;
+        if (mode === 'sanma') stats[ev.winner].yakumanSanma += cnt;
+        else stats[ev.winner].yakumanYonma += cnt;
       }
     });
   });
@@ -842,11 +983,39 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
 
   const sorted = [...stats].sort((a, b) => b.totalPoints - a.totalPoints);
 
+  const modeLabel =
+    rankingMode === 'yonma' ? '四麻' : rankingMode === 'sanma' ? '三麻' : '全モード';
+
   return (
     <>
+      {/* ===== モード切替 ===== */}
+      <div className="card">
+        <div className="card-title">集計モード</div>
+        <div className="mode-toggle">
+          <button
+            className={'mode-btn' + (rankingMode === 'all' ? ' active' : '')}
+            onClick={() => setRankingMode('all')}
+          >
+            全部
+          </button>
+          <button
+            className={'mode-btn' + (rankingMode === 'yonma' ? ' active' : '')}
+            onClick={() => setRankingMode('yonma')}
+          >
+            四麻のみ
+          </button>
+          <button
+            className={'mode-btn' + (rankingMode === 'sanma' ? ' active' : '')}
+            onClick={() => setRankingMode('sanma')}
+          >
+            三麻のみ
+          </button>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-title">
-          通算ランキング (四麻{totalYonma} / 三麻{totalSanma})
+          通算ランキング [{modeLabel}] (四麻{totalYonma} / 三麻{totalSanma})
         </div>
         <table className="stats-table">
           <thead>
@@ -854,6 +1023,8 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
               <th>順位</th>
               <th>名前</th>
               <th>累計pt</th>
+              <th>支払pt</th>
+              <th>差分</th>
               <th>平均順位</th>
               <th>半荘数</th>
             </tr>
@@ -863,6 +1034,11 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
               const cls =
                 s.totalPoints > 0 ? 'points-pos' : s.totalPoints < 0 ? 'points-neg' : 'points-zero';
               const sign = s.totalPoints > 0 ? '+' : '';
+              // 差分 = 累計 - 支払 = 受け取った分(プラス成分の合計)
+              const diff = s.totalPoints - s.paidPoints;
+              const diffCls = diff > 0 ? 'points-pos' : diff < 0 ? 'points-neg' : 'points-zero';
+              const diffSign = diff > 0 ? '+' : '';
+              const paidCls = s.paidPoints < 0 ? 'points-neg' : 'points-zero';
               return (
                 <tr key={s.idx} className={idx === 0 ? 'stats-rank-1' : ''}>
                   <td>{idx + 1}</td>
@@ -871,6 +1047,11 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
                     {sign}
                     {s.totalPoints}
                   </td>
+                  <td className={paidCls}>{s.paidPoints}</td>
+                  <td className={diffCls}>
+                    {diffSign}
+                    {diff}
+                  </td>
                   <td>{avgRank(s).toFixed(2)}</td>
                   <td>{s.hanchanCount}</td>
                 </tr>
@@ -878,6 +1059,9 @@ function StatsTab({ config, hanchans }: { config: AppConfig; hanchans: Hanchan[]
             })}
           </tbody>
         </table>
+        <p className="text-muted mt-2" style={{ fontSize: '0.78rem' }}>
+          ※ 累計pt = 全半荘の合計 / 支払pt = マイナスで終わった半荘の合計 / 差分 = 累計 − 支払 (受取分の合計)
+        </p>
       </div>
 
       {totalSanma > 0 && totalYonma > 0 && (

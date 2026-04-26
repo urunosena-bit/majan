@@ -58,6 +58,7 @@ export async function fetchHanchans(): Promise<Hanchan[]> {
     absentIdx: r.absent_idx,
     scores: r.scores,
     events: r.events,
+    chips: r.chips ?? [],
     ranks: r.ranks,
     points: r.points,
   }));
@@ -72,6 +73,7 @@ export async function insertHanchan(h: Hanchan): Promise<void> {
     absent_idx: h.absentIdx,
     scores: h.scores,
     events: h.events,
+    chips: h.chips ?? [],
     ranks: h.ranks,
     points: h.points,
   });
